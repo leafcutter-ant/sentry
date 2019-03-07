@@ -373,7 +373,6 @@ def get_grouping_variants_for_event(event):
 
 
 def get_hashes_for_event(event):
-def get_hashes_for_event_with_reason(event):
     for interface in six.itervalues(event.interfaces):
         result = interface.compute_hashes(event.platform)
         if not result:
