@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 
 import AsyncComponent from 'app/components/asyncComponent';
-import ExternalIssueActions from 'app/components/group/externalIssueActions';
+import ExternalIssueActions, {SentryAppExternalIssueActions} from 'app/components/group/externalIssueActions';
 import IssueSyncListElement from 'app/components/issueSyncListElement';
 import AlertLink from 'app/components/alertLink';
 import SentryTypes from 'app/sentryTypes';
@@ -18,8 +18,19 @@ class ExternalIssueList extends AsyncComponent {
   };
 
   getEndpoints() {
-    const {group} = this.props;
-    return [['integrations', `/groups/${group.id}/integrations/`]];
+    const {group, orgId} = this.props;
+
+    return [
+      ['integrations', `/groups/${group.id}/integrations/`],
+      ['components', `/organizations/${orgId}/sentry-app-components/?filter=issue-link`],
+    ];
+  }
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      externalIssues: [],
+    }
   }
 
   renderIntegrationIssues(integrations = []) {
@@ -38,6 +49,32 @@ class ExternalIssueList extends AsyncComponent {
           />
         ))
       : null;
+  }
+
+  renderSentryAppIssues() {
+    const {externalIssues, components} = this.state;
+    const {project, group} = this.props;
+    const issueLinkComponents = components.filter(
+      c => c.type === 'issue-link'
+    );
+
+    if (issueLinkComponents.length == 0) {
+      return null;
+    }
+
+    return issueLinkComponents.map(component => {
+      const {sentryApp} = component;
+      const issue = (externalIssues || []).find(i => i.serviceType == sentryApp.slug);
+
+      return (
+        <SentryAppExternalIssueActions
+          key={sentryApp.slug}
+          group={group}
+          sentryAppComponent={component}
+          externalIssue={issue}
+        />
+      );
+    });
   }
 
   renderPluginIssues() {
@@ -67,11 +104,12 @@ class ExternalIssueList extends AsyncComponent {
   }
 
   renderBody() {
+    const sentryAppIssues = this.renderSentryAppIssues();
     const integrationIssues = this.renderIntegrationIssues(this.state.integrations);
     const pluginIssues = this.renderPluginIssues();
     const pluginActions = this.renderPluginActions();
 
-    if (!integrationIssues && !pluginIssues && !pluginActions)
+    if (!sentryAppIssues && !integrationIssues && !pluginIssues && !pluginActions) {
       return (
         <React.Fragment>
           <h6 data-test-id="linked-issues">
@@ -87,12 +125,14 @@ class ExternalIssueList extends AsyncComponent {
           </AlertLink>
         </React.Fragment>
       );
+    }
 
     return (
       <React.Fragment>
         <h6 data-test-id="linked-issues">
           <span>Linked Issues</span>
         </h6>
+        {sentryAppIssues && <Box mb={2}>{sentryAppIssues}</Box>}
         {integrationIssues && <Box mb={2}>{integrationIssues}</Box>}
         {pluginIssues && <Box mb={2}>{pluginIssues}</Box>}
         {pluginActions && <Box mb={2}>{pluginActions}</Box>}

@@ -13,5 +13,8 @@ class SentryAppComponentSerializer(Serializer):
             'uuid': six.binary_type(obj.uuid),
             'type': obj.type,
             'schema': obj.schema,
-            'sentryAppId': obj.sentry_app_id,
+            'sentryApp': {
+                'slug': obj.sentry_app.slug,
+                'name': obj.sentry_app.name,
+            }
         }

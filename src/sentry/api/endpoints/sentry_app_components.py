@@ -21,13 +21,18 @@ class SentryAppComponentsEndpoint(SentryAppBaseEndpoint):
 class OrganizationSentryAppComponentsEndpoint(OrganizationEndpoint):
     @requires_feature('organizations:sentry-apps')
     def get(self, request, organization):
+        components = SentryAppComponent.objects.filter(
+            sentry_app_id__in=SentryApp.objects.filter(
+                installations__in=organization.sentry_app_installations.all(),
+            )
+        )
+
+        if request.GET.get('filter'):
+            components = components.filter(type=request.GET['filter'])
+
         return self.paginate(
             request=request,
-            queryset=SentryAppComponent.objects.filter(
-                sentry_app_id__in=SentryApp.objects.filter(
-                    installations__in=organization.sentry_app_installations.all(),
-                )
-            ),
+            queryset=components,
             paginator_cls=OffsetPaginator,
             on_results=lambda x: serialize(x, request.user),
         )
