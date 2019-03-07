@@ -151,7 +151,10 @@ class SnubaTagStorage(TagStorage):
                 top_values=top_values
             )
 
-    def __get_tag_keys(self, project_id, group_id, environment_ids, limit=1000, keys=None):
+    def __get_tag_keys(
+        self, project_id, group_id, environment_ids, limit=1000, keys=None,
+        include_values_seen=True,
+    ):
         start, end = self.get_time_range()
         return self.__get_tag_keys_for_projects(
             [project_id],
@@ -161,11 +164,12 @@ class SnubaTagStorage(TagStorage):
             end,
             limit,
             keys,
+            include_values_seen=include_values_seen,
         )
 
     def __get_tag_keys_for_projects(
-            self, projects, group_id, environments, start, end, limit=1000,
-            keys=None, **kwargs
+        self, projects, group_id, environments, start, end, limit=1000,
+        keys=None, include_values_seen=True, **kwargs
     ):
         filters = {
             'project_id': projects,
@@ -177,17 +181,17 @@ class SnubaTagStorage(TagStorage):
         if keys is not None:
             filters['tags_key'] = keys
         aggregations = [
-            ['uniq', 'tags_value', 'values_seen'],
             ['count()', '', 'count']
         ]
+
+        if include_values_seen:
+            aggregations.append(['uniq', 'tags_value', 'values_seen'])
         conditions = [['tags_key', 'NOT IN', self.EXCLUDE_TAG_KEYS]]
 
-        # TODO should this be sorted by count() descending, rather than the
-        # number of unique values
         result = snuba.query(
             start, end, ['tags_key'], conditions, filters, aggregations,
-            limit=limit, orderby='-values_seen',
-            referrer='tagstore.__get_tag_keys', **kwargs
+            limit=limit, orderby='-count', referrer='tagstore.__get_tag_keys',
+            **kwargs
         )
 
         if group_id is None:
@@ -198,9 +202,8 @@ class SnubaTagStorage(TagStorage):
         return set([
             ctor(
                 key=key,
-                values_seen=data['values_seen'],
-                count=data['count'],
-            ) for key, data in six.iteritems(result) if data['values_seen']
+                count=count,
+            ) for key, count in six.iteritems(result)
         ])
 
     def __get_tag_value(self, project_id, group_id, environment_id, key, value):
@@ -238,7 +241,10 @@ class SnubaTagStorage(TagStorage):
         assert status is TagKeyStatus.VISIBLE
         return self.__get_tag_key_and_top_values(project_id, None, environment_id, key)
 
-    def get_tag_keys(self, project_id, environment_id, status=TagKeyStatus.VISIBLE):
+    def get_tag_keys(
+        self, project_id, environment_id, status=TagKeyStatus.VISIBLE,
+        include_values_seen=False,
+    ):
         assert status is TagKeyStatus.VISIBLE
         return self.__get_tag_keys(project_id, None, environment_id and [environment_id])
 
@@ -254,7 +260,8 @@ class SnubaTagStorage(TagStorage):
         if len(projects) <= MAX_UNSAMPLED_PROJECTS:
             optimize_kwargs['sample'] = 1
         return self.__get_tag_keys_for_projects(
-            projects, None, environments, start, end, **optimize_kwargs
+            projects, None, environments, start, end, include_values_seen=False,
+            **optimize_kwargs
         )
 
     def get_tag_value(self, project_id, environment_id, key, value):
@@ -270,7 +277,10 @@ class SnubaTagStorage(TagStorage):
             project_id, group_id, environment_id, key, limit=TOP_VALUES_DEFAULT_LIMIT)
 
     def get_group_tag_keys(self, project_id, group_id, environment_ids, limit=None, keys=None):
-        return self.__get_tag_keys(project_id, group_id, environment_ids, limit=limit, keys=keys)
+        return self.__get_tag_keys(
+            project_id, group_id, environment_ids, limit=limit, keys=keys,
+            include_values_seen=False,
+        )
 
     def get_group_tag_value(self, project_id, group_id, environment_id, key, value):
         return self.__get_tag_value(project_id, group_id, environment_id, key, value)

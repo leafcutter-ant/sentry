@@ -216,7 +216,10 @@ class TagStorage(Service):
         """
         raise NotImplementedError
 
-    def get_tag_keys(self, project_id, environment_id, status=TagKeyStatus.VISIBLE):
+    def get_tag_keys(
+        self, project_id, environment_id, status=TagKeyStatus.VISIBLE,
+        include_values_seen=False,
+    ):
         """
         >>> get_tag_key(1, 2)
         """
