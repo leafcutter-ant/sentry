@@ -281,15 +281,13 @@ def get_calculated_grouping_variants_for_event(event):
     variants.  Checksum and fingerprinting logic are not handled by this
     function which is handled by `get_grouping_variants_for_event`.
     """
-    # This sorts the interfaces by the interface score which gives it the
-    # priority which we depend on.
-    interfaces = event.get_interfaces()
-
     winning_strategy = None
     precedence_hint = None
     per_variant_components = {}
 
-    for (strategy_name, interface) in six.iteritems(interfaces):
+    # event.interfaces is sorted by the interface score which gives it the
+    # priority which we depend on.
+    for (strategy_name, interface) in six.iteritems(event.interfaces):
         rv = interface.get_grouping_component_variants(event.platform)
         for (variant, component) in six.iteritems(rv):
             per_variant_components.setdefault(variant, []).append(component)
